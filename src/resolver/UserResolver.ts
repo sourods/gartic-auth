@@ -1,7 +1,16 @@
+import { Response, Request } from 'express'
 import { User } from "../entity/User"
-import { Arg, Field, Mutation, ObjectType, Query, Resolver } from "type-graphql"
+import { Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver } from "type-graphql"
 import { compare, hash } from 'bcryptjs'
 import { sign } from "jsonwebtoken"
+
+interface Context {
+    req: Request,
+    res: Response
+}
+
+const createAccessToken = (userId: number) => sign({ userId }, 'asdfasdfsdjfh', { expiresIn: '3m' })
+const createRefreshToken = (userId: number) => sign({ userId }, 'okkookoijinooihdsfa', { expiresIn: '7d' })
 
 @ObjectType()
 class LoginResponse {
@@ -19,7 +28,8 @@ export class UserResolver {
     @Mutation(() => LoginResponse)
     async login(
         @Arg('email') email: string,
-        @Arg('password') password: string
+        @Arg('password') password: string,
+        @Ctx() { res }: Context
     ): Promise<LoginResponse> {
         const user = await User.findOne({ where: { email } })
 
@@ -33,8 +43,14 @@ export class UserResolver {
             throw new Error('invalid credentials')
         }
 
+        //login success
+
+        res.cookie('jid', createRefreshToken(user.id), {
+            httpOnly: true,
+        })
+
         return {
-            accessToken: sign({ userId: user.id }, 'asdfasdfsdjfh', { expiresIn: '3m' })
+            accessToken: createAccessToken(user.id)
         }
     }
 
